@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: team-performance-tracker-api
+    env: node
+    plan: starter
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 24.15.0
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+disks:
+  - name: performance-data
+    mountPath: /opt/render/project/src/server/data
+    sizeGB: 1
