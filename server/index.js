@@ -15,10 +15,7 @@ const tokenSecret = process.env.AUTH_SECRET || "change-this-secret-before-produc
 const tokenMaxAgeMs = 1000 * 60 * 60 * 8;
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://ai-testing-record-dj99.vercel.app"
-  ],
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
