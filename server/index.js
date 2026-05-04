@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+console.log("🔥 FILE LOADED ON RENDER");
 
 const app = express();   // ✅ ONLY ONE
 
@@ -16,6 +17,7 @@ app.get("/", (req, res) => {
 // start server
 const PORT = process.env.PORT || 4000;
 
+console.log("ENV PORT:", process.env.PORT);
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
