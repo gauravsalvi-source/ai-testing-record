@@ -1,7 +1,7 @@
 import express from "express";
 const app = express();
 
-// ✅ Add it here
+// ✅ Add this here
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
@@ -10,8 +10,9 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api", otherRoutes);
 
-// start server
+// ✅ keep this at the bottom
 const PORT = process.env.PORT || 4000;
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
