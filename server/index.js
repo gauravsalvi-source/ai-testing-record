@@ -1,4 +1,21 @@
 import express from "express";
+const app = express();
+
+// ✅ Add it here
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
+// your existing routes
+app.use("/api/auth", authRoutes);
+app.use("/api", otherRoutes);
+
+// start server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
 import cors from "cors";
 import crypto from "node:crypto";
 import { mkdirSync } from "node:fs";
@@ -7,12 +24,21 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
 const app = express();
-const port = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, "data");
 const databasePath = join(dataDir, "performance.db");
 const tokenSecret = process.env.AUTH_SECRET || "change-this-secret-before-production";
 const tokenMaxAgeMs = 1000 * 60 * 60 * 8;
+
+app.get("/api", (req, res) => {
+  res.json({ message: "API is working ✅" });
+});
 
 app.use(cors({
   origin: [
