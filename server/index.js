@@ -12,8 +12,6 @@ app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-// your routes
-app.use("/api", otherRoutes);
 
 // start server
 const PORT = process.env.PORT || 4000;
