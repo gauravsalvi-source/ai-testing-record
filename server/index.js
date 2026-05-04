@@ -17,10 +17,11 @@ const tokenMaxAgeMs = 1000 * 60 * 60 * 8;
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://ai-testing-record-dj99.vercel.app"
+    "https://client-teal-seven-24.vercel.app"
   ],
   credentials: true
 }));
+
 app.use(express.json());
 
 mkdirSync(dataDir, { recursive: true });

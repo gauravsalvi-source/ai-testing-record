@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+console.log("🔥 COMPONENT LOADED");
+
+
 
 const exportReport = (row) => {
   const csvData = [
@@ -58,23 +61,54 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState(
   new Date().toISOString().slice(0, 7)
 );
+// // 1. Filter employees who did testing
+const testers = (summary || []).filter(
+  (emp) => Number(emp.totalBugs) > 0
+);
 
- const testers = (summary || []).filter((emp) => emp.role === "Tester");
-const supports = (summary || []).filter((emp) => emp.role === "Support");
+// 2. Filter supports
+const supports = (summary || []).filter(
+  (emp) => emp.role === "Support"
+);
 
+// 3. Tester score = Bugs + Testing + Avg Effort (weighted)
+const getTesterScore = (emp) => {
+  const bugs = Number(emp.totalBugs) || 0;
+  const testing = Number(emp.testingScore) || 0;
+  const effort = Number(emp.avgEffortScore) || 0;
+
+  // Balanced formula
+  return (bugs * 0.5) + (testing * 20) + (effort * 10);
+};
+
+// 4. Get Top Tester (highest score wins)
 const topTester = testers.length
   ? testers.reduce((max, emp) =>
-      emp.finalScore > (max?.finalScore || 0) ? emp : max,
+      getTesterScore(emp) > getTesterScore(max) ? emp : max,
       testers[0]
     )
   : null;
-
+  
+// 5. Get Top Support (based on finalScore)
 const topSupport = supports.length
   ? supports.reduce((max, emp) =>
-      emp.finalScore > (max?.finalScore || 0) ? emp : max,
+      Number(emp.finalScore) > (Number(max?.finalScore) || 0) ? emp : max,
       supports[0]
     )
   : null;
+
+// 6. Debug logs (temporary)
+console.log("🧪 Tester Scores:",
+  testers.map(emp => ({
+    name: emp.employee,
+    bugs: emp.totalBugs,
+    testing: emp.testingScore,
+    score: getTesterScore(emp)
+  }))
+);
+
+console.log("🏆 Top Tester:", topTester);
+console.log("🏆 Top Support:", topSupport);
 
   const [report, setReport] = useState([]);
   const [form, setForm] = useState(initialForm);
