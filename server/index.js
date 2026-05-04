@@ -971,6 +971,6 @@ app.post("/api/database/import", requireAdmin, (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Performance tracker API running at http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`Performance tracker API running at http://localhost:${PORT}`);
 });
