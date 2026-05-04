@@ -13,7 +13,6 @@ app.get("/", (req, res) => {
 });
 
 // your routes
-app.use("/api/auth", authRoutes);
 app.use("/api", otherRoutes);
 
 // start server
