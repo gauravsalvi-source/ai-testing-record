@@ -1,16 +1,22 @@
 import express from "express";
-const app = express();
+import cors from "cors";
 
-// ✅ Add this here
+const app = express();   // ✅ ONLY ONE
+
+// middleware
+app.use(cors());
+app.use(express.json());
+
+// root route
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-// your existing routes
+// your routes
 app.use("/api/auth", authRoutes);
 app.use("/api", otherRoutes);
 
-// ✅ keep this at the bottom
+// start server
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
@@ -24,7 +30,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
-const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
