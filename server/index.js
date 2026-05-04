@@ -23,7 +23,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-import cors from "cors";
+
 import crypto from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
