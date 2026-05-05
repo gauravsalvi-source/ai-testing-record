@@ -27,7 +27,14 @@ const exportReport = (row) => {
   link.click();
   document.body.removeChild(link);
 };
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || "";
+const isLocalhost = typeof window !== "undefined" && window.location.hostname === "localhost";
+const API_BASE = rawApiBase.replace(/\/+$/, "") ||
+  (isLocalhost
+    ? "http://localhost:4000/api"
+    : "https://ai-testing-record.onrender.com/api");
+console.log("API BASE:", API_BASE, "HOSTNAME:", typeof window !== "undefined" ? window.location.hostname : "N/A");
+
 const TOKEN_KEY = "performanceTrackerToken";
 
 const initialForm = {
@@ -152,24 +159,36 @@ console.log("🏆 Top Support:", topSupport);
 }, [currentUser, queryString, selectedMonth]);
 
   async function apiFetch(path, options = {}) {
-    return fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        ...(options.headers || {}),
-        Authorization: `Bearer ${token}`
-      }
-    });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const text = await res.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    console.error("❌ Non-JSON response:", text);
+    throw new Error("Server returned invalid response");
   }
+
+  if (!res.ok) {
+    throw new Error(data.message || "Request failed");
+  }
+
+  return data; // ✅ ALWAYS JSON
+}
 
   async function loadSession() {
     try {
-      const response = await apiFetch("/auth/me");
-
-      if (!response.ok) {
-        throw new Error("Session expired.");
-      }
-
-      setCurrentUser(await response.json());
+      const user = await apiFetch("/auth/me");
+      setCurrentUser(user);
     } catch {
       localStorage.removeItem(TOKEN_KEY);
       setToken("");
@@ -179,21 +198,25 @@ console.log("🏆 Top Support:", topSupport);
 
   async function handleLogin(credentials) {
     setError("");
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const url = `${API_BASE}/auth/login`;
+    console.log("LOGIN URL:", url);
+
+    const response = await fetch(url, {
       method: "POST",
+      mode: "cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials)
     });
 
     if (!response.ok) {
-      const body = await response.json();
+      const body = await response.json().catch(() => ({}));
       throw new Error(body.message || "Unable to log in.");
     }
 
     const data = await response.json();
     localStorage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
-    setCurrentUser(data.user);
+    await loadSession();
   }
 
   function handleLogout() {
@@ -203,8 +226,7 @@ console.log("🏆 Top Support:", topSupport);
   }
 
   async function loadEmployees() {
-    const response = await apiFetch("/employees");
-    const data = await response.json();
+    const data = await apiFetch("/employees");
     setEmployees(data);
   }
 
@@ -213,21 +235,17 @@ console.log("🏆 Top Support:", topSupport);
     setError("");
 
     try {
-const currentMonth = selectedMonth;
+      const currentMonth = selectedMonth;
 
-const [entriesResponse, summaryResponse, reportResponse] = await Promise.all([
-  apiFetch(`/entries${queryString ? `?${queryString}` : ""}`),
-  apiFetch(`/summary?month=${currentMonth}`),   // ✅ updated
-  apiFetch(`/report?month=${currentMonth}`)     // ✅ updated
-]);
+      const [entriesResponse, summaryResponse, reportResponse] = await Promise.all([
+        apiFetch(`/entries${queryString ? `?${queryString}` : ""}`),
+        apiFetch(`/summary?month=${currentMonth}`),
+        apiFetch(`/report?month=${currentMonth}`)
+      ]);
 
-if (!entriesResponse.ok || !summaryResponse.ok || !reportResponse.ok) {
-  throw new Error("Unable to load tracker data.");
-}
-
-      setEntries(await entriesResponse.json());
-      setSummary(await summaryResponse.json());
-      setReport(await reportResponse.json());
+      setEntries(entriesResponse);
+      setSummary(summaryResponse);
+      setReport(reportResponse);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -268,34 +286,34 @@ if (!entriesResponse.ok || !summaryResponse.ok || !reportResponse.ok) {
     }));
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
+async function handleSubmit(event) {
+  event.preventDefault();
+  setError("");
+  setMessage("");
 
-    try {
-      const response = await apiFetch(editingId ? `/entries/${editingId}` : "/entries", {
-        method: editingId ? "PATCH" : "POST",
+  try {
+    const savedEntry = await apiFetch(
+      editingId ? `/entries/${editingId}` : "/entries",
+      {
+        method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
-      });
-
-      if (!response.ok) {
-        const body = await response.json();
-        throw new Error(body.message || "Unable to save entry.");
       }
+    );
 
-      const savedEntry = await response.json();
-      setMessage(`${editingId ? "Updated" : "Added"} ${savedEntry.employeeName}'s entry with effort score ${savedEntry.overallEffort || "N/A"}.`);
-      setForm({ ...initialForm, employeeName: form.employeeName, role: form.role });
-      setEditingId(null);
-      setFilters({ employee: "All", role: "All", startDate: "", endDate: "" });
-      await loadDashboard();
-    } catch (err) {
-      setError(err.message);
-    }
+    setMessage(
+      `${editingId ? "Updated" : "Added"} ${savedEntry.employeeName}'s entry`
+    );
+
+    setForm({ ...initialForm, employeeName: form.employeeName, role: form.role });
+    setEditingId(null);
+    setFilters({ employee: "All", role: "All", startDate: "", endDate: "" });
+
+    await loadDashboard();
+  } catch (err) {
+    setError(err.message);
   }
-
+}
   function handleEdit(entry) {
     setEditingId(entry.id);
     setMessage("");
@@ -324,8 +342,7 @@ if (!entriesResponse.ok || !summaryResponse.ok || !reportResponse.ok) {
     setMessage("");
 
     try {
-      const response = await apiFetch(`/entries/${entry.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Unable to delete entry.");
+      await apiFetch(`/entries/${entry.id}`, { method: "DELETE" });
       if (editingId === entry.id) handleCancel();
       await loadDashboard();
       setMessage("Entry deleted.");
@@ -887,7 +904,7 @@ function AdminPanel({ token, apiFetch }) {
 
   async function loadUsers() {
     const response = await apiFetch("/users");
-    setUsers(await response.json());
+setUsers(response);
   }
 
   async function handleSubmit(event) {
@@ -896,16 +913,11 @@ function AdminPanel({ token, apiFetch }) {
     setError("");
 
     try {
-      const response = await apiFetch("/users", {
+      await apiFetch("/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
-
-      if (!response.ok) {
-        const body = await response.json();
-        throw new Error(body.message || "Unable to create user.");
-      }
 
       setForm({ name: "", email: "", password: "", role: "editor" });
       setMessage("User created.");
@@ -917,11 +929,9 @@ function AdminPanel({ token, apiFetch }) {
 
   async function deleteUser(user) {
     if (!window.confirm(`Delete ${user.email}?`)) return;
-    const response = await apiFetch(`/users/${user.id}`, { method: "DELETE" });
 
-    if (response.ok) {
-      await loadUsers();
-    }
+    await apiFetch(`/users/${user.id}`, { method: "DELETE" });
+    await loadUsers();
   }
 
   function exportBackup() {
