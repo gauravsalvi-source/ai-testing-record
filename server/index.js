@@ -18,15 +18,7 @@ const allowedOrigins = rawCorsOrigins.split(",").map((origin) => origin.trim()).
 console.log("Allowed CORS origins:", allowedOrigins);
 
 app.use(cors({
-  origin: (origin, callback) => {
-    console.log("CORS check - Request origin:", origin);
-    console.log("CORS check - Allowed origins:", allowedOrigins);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: 'https://ai-testing-record-dj99.vercel.app',
   credentials: true,
   optionsSuccessStatus: 200
 }));
