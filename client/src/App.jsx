@@ -173,8 +173,6 @@ console.log("🏆 Top Support:", topSupport);
 
   async function apiFetch(path, options = {}, authToken = token) {
   const url = `${API_BASE}${path}`;
-  console.log("API Fetch URL:", url);
-  console.log("API Fetch Token:", authToken);
   const res = await fetch(url, {
     ...options,
     headers: {
