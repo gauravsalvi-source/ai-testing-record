@@ -82,6 +82,23 @@ CREATE TABLE IF NOT EXISTS users (
 );
 `);
 
+// Migration: Add notes column if it doesn't exist
+try {
+  db.prepare("PRAGMA table_info(entries)").all().forEach((col) => {
+    if (col.name === "notes") return;
+  });
+  
+  const columns = db.prepare("PRAGMA table_info(entries)").all();
+  const hasNotesColumn = columns.some(col => col.name === "notes");
+  
+  if (!hasNotesColumn) {
+    db.exec("ALTER TABLE entries ADD COLUMN notes TEXT;");
+    console.log("✅ Added notes column to entries table");
+  }
+} catch (err) {
+  console.error("⚠️ Migration check failed:", err.message);
+}
+
 // ======================
 // AUTH HELPERS
 // ======================
