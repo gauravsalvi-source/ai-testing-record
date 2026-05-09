@@ -12,13 +12,13 @@ const app = express();
 // ======================
 // CORS
 // ======================
-const rawCorsOrigins = process.env.CORS_ORIGIN || "http://localhost:5173,http://192.168.0.104:5173,https://client-teal-seven-24.vercel.app,https://ai-testing-record-dj99.vercel.app";
+const rawCorsOrigins = process.env.CORS_ORIGIN || "http://localhost:5173,http://192.168.0.104:5173,https://client-teal-seven-24.vercel.app,https://ai-testing-record-dj99.vercel.app,https://team-performance-trackr.vercel.app";
 const allowedOrigins = rawCorsOrigins.split(",").map((origin) => origin.trim()).filter(Boolean);
 
 console.log("Allowed CORS origins:", allowedOrigins);
 
 app.use(cors({
-  origin: 'https://ai-testing-record-dj99.vercel.app',
+  origin: 'https://team-performance-trackr.vercel.app',
   credentials: true,
   optionsSuccessStatus: 200
 }));
