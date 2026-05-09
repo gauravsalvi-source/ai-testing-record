@@ -9,7 +9,7 @@ const exportReport = (row) => {
     [
       row.employee,
       row.role,
-      (Number(row.finalRating || 0) * 100).toFixed(0) + "%",
+      ((Number(row.finalRating || 0) / 5) * 100).toFixed(0) + "%",
       row.performanceCategory,
       row.keyStrengths,
     ],
@@ -29,13 +29,25 @@ const exportReport = (row) => {
 };
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || "";
 const isLocalhost = typeof window !== "undefined" && window.location.hostname === "localhost";
-const API_BASE = rawApiBase.replace(/\/+$/, "") ||
+const configuredApiBase = rawApiBase.replace(/\/+$/, "");
+const isLocalApiBase = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?\/?/i.test(configuredApiBase);
+const API_BASE = (configuredApiBase && (isLocalhost || !isLocalApiBase) ? configuredApiBase : "") ||
   (isLocalhost
     ? "http://localhost:4000/api"
     : "https://ai-testing-record.onrender.com/api");
 console.log("API BASE:", API_BASE, "HOSTNAME:", typeof window !== "undefined" ? window.location.hostname : "N/A");
 
 const TOKEN_KEY = "performanceTrackerToken";
+
+async function readJsonResponse(response, url) {
+  const text = await response.text();
+
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Server returned HTML instead of JSON for ${url}`);
+  }
+}
 
 const initialForm = {
   date: "2026-04-01",
@@ -68,9 +80,9 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState(
   new Date().toISOString().slice(0, 7)
 );
-// // 1. Filter employees who did testing
+// // 1. Filter employees who did testing, regardless of role
 const testers = (summary || []).filter(
-  (emp) => Number(emp.totalBugs) > 0
+  (emp) => Number(emp.totalBugs) > 0 || Number(emp.testingDays) > 0
 );
 
 // 2. Filter supports
@@ -78,20 +90,22 @@ const supports = (summary || []).filter(
   (emp) => emp.role === "Support"
 );
 
-// 3. Tester score = Bugs + Testing + Avg Effort (weighted)
-const getTesterScore = (emp) => {
-  const bugs = Number(emp.totalBugs) || 0;
-  const testing = Number(emp.testingScore) || 0;
-  const effort = Number(emp.avgEffortScore) || 0;
+// 3. Tester ranking = bug count first, then testing quality.
+const compareTesterPerformance = (current, best) => {
+  const currentBugs = Number(current.totalBugs) || 0;
+  const bestBugs = Number(best.totalBugs) || 0;
 
-  // Balanced formula
-  return (bugs * 0.5) + (testing * 20) + (effort * 10);
+  if (currentBugs !== bestBugs) {
+    return currentBugs > bestBugs;
+  }
+
+  return (Number(current.testingScore) || 0) > (Number(best.testingScore) || 0);
 };
 
-// 4. Get Top Tester (highest score wins)
+// 4. Get Top Tester (highest bugs, then highest quality wins)
 const topTester = testers.length
   ? testers.reduce((max, emp) =>
-      getTesterScore(emp) > getTesterScore(max) ? emp : max,
+      compareTesterPerformance(emp, max) ? emp : max,
       testers[0]
     )
   : null;
@@ -109,8 +123,7 @@ console.log("🧪 Tester Scores:",
   testers.map(emp => ({
     name: emp.employee,
     bugs: emp.totalBugs,
-    testing: emp.testingScore,
-    score: getTesterScore(emp)
+    testing: emp.testingScore
   }))
 );
 
@@ -158,26 +171,20 @@ console.log("🏆 Top Support:", topSupport);
   }
 }, [currentUser, queryString, selectedMonth]);
 
-  async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  async function apiFetch(path, options = {}, authToken = token) {
+  const url = `${API_BASE}${path}`;
+  console.log("API Fetch URL:", url);
+  console.log("API Fetch Token:", authToken);
+  const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${authToken}`
     }
   });
 
-  const text = await res.text();
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    console.error("❌ Non-JSON response:", text);
-    throw new Error("Server returned invalid response");
-  }
-
+  const data = await readJsonResponse(res, url);
   if (!res.ok) {
     throw new Error(data.message || "Request failed");
   }
@@ -185,9 +192,9 @@ console.log("🏆 Top Support:", topSupport);
   return data; // ✅ ALWAYS JSON
 }
 
-  async function loadSession() {
+  async function loadSession(authToken = token) {
     try {
-      const user = await apiFetch("/auth/me");
+      const user = await apiFetch("/auth/me", {}, authToken);
       setCurrentUser(user);
     } catch {
       localStorage.removeItem(TOKEN_KEY);
@@ -209,14 +216,14 @@ console.log("🏆 Top Support:", topSupport);
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
+      const body = await readJsonResponse(response, url).catch(() => ({}));
       throw new Error(body.message || "Unable to log in.");
     }
 
-    const data = await response.json();
+    const data = await readJsonResponse(response, url);
     localStorage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
-    await loadSession();
+    await loadSession(data.token);
   }
 
   function handleLogout() {
@@ -230,7 +237,7 @@ console.log("🏆 Top Support:", topSupport);
     setEmployees(data);
   }
 
-  async function loadDashboard() {
+  async function loadDashboard(nextQueryString = queryString) {
     setLoading(true);
     setError("");
 
@@ -238,7 +245,7 @@ console.log("🏆 Top Support:", topSupport);
       const currentMonth = selectedMonth;
 
       const [entriesResponse, summaryResponse, reportResponse] = await Promise.all([
-        apiFetch(`/entries${queryString ? `?${queryString}` : ""}`),
+        apiFetch(`/entries${nextQueryString ? `?${nextQueryString}` : ""}`),
         apiFetch(`/summary?month=${currentMonth}`),
         apiFetch(`/report?month=${currentMonth}`)
       ]);
@@ -292,7 +299,7 @@ async function handleSubmit(event) {
   setMessage("");
 
   try {
-    const savedEntry = await apiFetch(
+    await apiFetch(
       editingId ? `/entries/${editingId}` : "/entries",
       {
         method: editingId ? "PUT" : "POST",
@@ -301,15 +308,18 @@ async function handleSubmit(event) {
       }
     );
 
+    const savedEmployeeName = form.employeeName;
+    const wasEditing = Boolean(editingId);
+
     setMessage(
-      `${editingId ? "Updated" : "Added"} ${savedEntry.employeeName}'s entry`
+      `${wasEditing ? "Updated" : "Added"} ${savedEmployeeName}'s entry`
     );
 
-    setForm({ ...initialForm, employeeName: form.employeeName, role: form.role });
+    setForm({ ...initialForm, employeeName: savedEmployeeName, role: form.role });
     setEditingId(null);
     setFilters({ employee: "All", role: "All", startDate: "", endDate: "" });
 
-    await loadDashboard();
+    await loadDashboard("");
   } catch (err) {
     setError(err.message);
   }
@@ -579,6 +589,16 @@ async function handleSubmit(event) {
                 <h2>Daily records</h2>
                 <p>Filter by employee, role, or date range.</p>
               </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setFilters({ employee: "All", role: "All", startDate: "", endDate: "" });
+                  loadDashboard("");
+                }}
+              >
+                Refresh
+              </button>
             </div>
             <div className="filters">
               <label>
@@ -831,7 +851,7 @@ function ReportTable({ rows, token }) {
         safe(row.role || ""),
         safe(
           row.finalRating !== undefined
-            ? (row.finalRating * 100).toFixed(0) + "%"
+            ? ((Number(row.finalRating) / 5) * 100).toFixed(0) + "%"
             : "0%"
         ),
         safe(row.performanceCategory || ""),
@@ -953,16 +973,11 @@ setUsers(response);
 
     try {
       const parsedBackup = JSON.parse(backupText);
-      const response = await apiFetch("/database/import", {
+      await apiFetch("/database/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsedBackup)
       });
-
-      if (!response.ok) {
-        const body = await response.json();
-        throw new Error(body.message || "Unable to import backup.");
-      }
 
       setMessage("Backup imported. Refresh the tracker views to see restored data.");
       setBackupText("");
