@@ -131,8 +131,12 @@ if (!adminExists) {
 // AUTH MIDDLEWARE
 // ======================
 function authenticate(req, res, next) {
-  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+  console.log("Auth header:", authHeader);
+  console.log("Extracted token:", token);
   const user = verifyToken(token);
+  console.log("Verified user:", user);
 
   if (!user) return res.status(401).json({ message: "Unauthorized" });
 
