@@ -18,7 +18,13 @@ const allowedOrigins = rawCorsOrigins.split(",").map((origin) => origin.trim()).
 console.log("Allowed CORS origins:", allowedOrigins);
 
 app.use(cors({
-  origin: 'https://team-performance-trackr.vercel.app',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed"));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }));
