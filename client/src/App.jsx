@@ -732,17 +732,18 @@ function DataTable({ loading, entries, canEdit, onEdit, onDelete }) {
             <th>System</th>
             <th>Effort</th>
             <th>Issues</th>
+            <th>Notes</th>
             {canEdit && <th>Action</th>}
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={canEdit ? 13 : 12} className="empty-state">Loading entries...</td>
+              <td colSpan={canEdit ? 14 : 13} className="empty-state">Loading entries...</td>
             </tr>
           ) : entries.length === 0 ? (
             <tr>
-              <td colSpan={canEdit ? 13 : 12} className="empty-state">No entries match the filters.</td>
+              <td colSpan={canEdit ? 14 : 13} className="empty-state">No entries match the filters.</td>
             </tr>
           ) : (
             entries.map((entry) => (
@@ -779,6 +780,7 @@ function DataTable({ loading, entries, canEdit, onEdit, onDelete }) {
 </td>
                 <td><span className={`score-pill ${scoreClass(entry.overallEffort)}`}>{entry.overallEffort || "N/A"}</span></td>
                 <td>{entry.issuesBlockers || "-"}</td>
+                <td>{entry.notes || "-"}</td>
                 {canEdit && <td>
                   <div className="table-actions">
                     <button type="button" className="table-button" onClick={() => onEdit(entry)}>Edit</button>
