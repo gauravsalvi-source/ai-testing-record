@@ -135,6 +135,7 @@ console.log("🏆 Top Support:", topSupport);
   const [editingId, setEditingId] = useState(null);
   const [filters, setFilters] = useState({ employee: "All", role: "All", startDate: "", endDate: "" });
   const [activeTab, setActiveTab] = useState("daily");
+  const [viewMode, setViewMode] = useState("table"); // "table" or "grid"
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -456,7 +457,14 @@ async function handleSubmit(event) {
           )}
         </nav>
         <div className="view-tools">
-          <span>Grid view</span>
+          <button 
+            type="button"
+            className={`view-toggle ${viewMode === "grid" ? "active" : ""}`}
+            onClick={() => setViewMode(viewMode === "grid" ? "table" : "grid")}
+            title={`Switch to ${viewMode === "grid" ? "table" : "grid"} view`}
+          >
+            {viewMode === "grid" ? "📊 Table view" : "📋 Grid view"}
+          </button>
           <span>{entries.length} records</span>
           <button type="button" className="logout-button" onClick={handleLogout}>
             Logout
@@ -637,7 +645,7 @@ async function handleSubmit(event) {
               </label>
             </div>
 
-            <DataTable loading={loading} entries={entries} canEdit={canEdit} onEdit={handleEdit} onDelete={handleDelete} />
+            <DataTable loading={loading} entries={entries} canEdit={canEdit} onEdit={handleEdit} onDelete={handleDelete} viewMode={viewMode} />
           </section>
         </section>
       )}
@@ -714,7 +722,84 @@ function LoginScreen({ onLogin, error, setError }) {
   );
 }
 
-function DataTable({ loading, entries, canEdit, onEdit, onDelete }) {
+function DataTable({ loading, entries, canEdit, onEdit, onDelete, viewMode = "table" }) {
+  if (viewMode === "grid") {
+    return (
+      <div className="grid-wrap">
+        {loading ? (
+          <div className="empty-state">Loading entries...</div>
+        ) : entries.length === 0 ? (
+          <div className="empty-state">No entries match the filters.</div>
+        ) : (
+          <div className="entries-grid">
+            {entries.map((entry) => (
+              <div key={entry.id} className="entry-card">
+                <div className="card-header">
+                  <h3>{entry.employeeName}</h3>
+                  <span className="role-chip">{entry.role}</span>
+                </div>
+                <div className="card-body">
+                  <div className="card-field">
+                    <strong>Date:</strong> {entry.date}
+                  </div>
+                  <div className="card-field">
+                    <strong>Testing:</strong> <span className={`status-chip status-${entry.testingApps.toLowerCase()}`}>{entry.testingApps}</span>
+                  </div>
+                  <div className="card-row">
+                    <div className="card-field">
+                      <strong>Tickets:</strong> {entry.supportTickets ?? "N/A"}
+                    </div>
+                    <div className="card-field">
+                      <strong>Chats:</strong> {entry.chatsHandled ?? "N/A"}
+                    </div>
+                    <div className="card-field">
+                      <strong>Bugs:</strong> {entry.bugsAdded}
+                    </div>
+                  </div>
+                  <div className="card-row">
+                    <div className="card-field">
+                      <strong>Quality:</strong>
+                      {["leave", "holiday"].includes((entry.testingApps || "").toLowerCase().trim()) ? (
+                        "N/A"
+                      ) : (
+                        <span className={`quality-chip quality-${(entry.qualityOfTesting || "na").toLowerCase().replace("/", "")}`}>
+                          {entry.qualityOfTesting || "N/A"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="card-field">
+                      <strong>Reviews:</strong> {entry.appReviews ?? "N/A"}
+                    </div>
+                  </div>
+                  <div className="card-row">
+                    <div className="card-field">
+                      <strong>System:</strong> {entry.testingApps === "Leave" || entry.testingApps === "Holiday" ? "N/A" : entry.systemProcess}
+                    </div>
+                    <div className="card-field">
+                      <strong>Effort:</strong> <span className={`score-pill ${scoreClass(entry.overallEffort)}`}>{entry.overallEffort || "N/A"}</span>
+                    </div>
+                  </div>
+                  <div className="card-field">
+                    <strong>Issues:</strong> {entry.issuesBlockers || "-"}
+                  </div>
+                  <div className="card-field">
+                    <strong>Notes:</strong> {entry.notes || "-"}
+                  </div>
+                </div>
+                {canEdit && (
+                  <div className="card-actions">
+                    <button type="button" className="table-button" onClick={() => onEdit(entry)}>Edit</button>
+                    <button type="button" className="table-button danger-button" onClick={() => onDelete(entry)}>Delete</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrap">
       <table>
